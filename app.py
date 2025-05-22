@@ -65,16 +65,24 @@ def register():
     try:
         data = request.json
         username = data.get('username')
+        email = data.get('email')
         password = data.get('password')
         role = data.get('role', 'user')
-
+        
+        # Check if user already exists by username or email
         if User.objects(username=username):
-            return jsonify({"message": "User already exists"}), 400
-
+            return jsonify({"message": "Username already exists"}), 400
+        
+        if User.objects(email=email):
+            return jsonify({"message": "Email already exists"}), 400
+            
+        # Validate required fields
+        if not username or not email or not password:
+            return jsonify({"message": "Username, email, and password are required"}), 400
+            
         hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-        user = User(username=username, password=hashed_password, role=role)
+        user = User(username=username, email=email, password=hashed_password, role=role)
         user.save()
-
         return jsonify({"message": "User registered successfully"}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -84,14 +92,17 @@ def register():
 def login():
     try:
         data = request.json
-        username = data.get('username')
+        email = data.get('email')
         password = data.get('password')
-
-        user = User.objects(username=username).first()
+        
+        # Validate required fields
+        if not email or not password:
+            return jsonify({"message": "Email and password are required"}), 400
+        
+        user = User.objects(email=email).first()
         if user and bcrypt.check_password_hash(user.password, password):
-            token = create_access_token(identity={"username": username, "role": user.role, "user_id": str(user.id)})
+            token = create_access_token(identity={"username": user.username, "email": user.email, "role": user.role, "user_id": str(user.id)})
             return jsonify({"access_token": token}), 200
-
         return jsonify({"message": "Invalid credentials"}), 401
     except Exception as e:
         return jsonify({"error": str(e)}), 500
